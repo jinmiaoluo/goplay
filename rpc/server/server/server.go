@@ -7,18 +7,15 @@ package server
 
 import (
 	"errors"
-	"log"
-	"net"
-	"net/http"
-	"net/rpc"
-//,de
+)
 
 type Args struct {
 	A, B int
 }
 
 type Quotient struct {
-	Quo, Rem int
+	Quo int //quotient(商)
+	Rem int //remainder(余数)
 }
 
 type Arith int
@@ -39,15 +36,4 @@ func (t *Arith) Divide(args *Args, quo *Quotient) error {
 	quo.Quo = args.A / args.B
 	quo.Rem = args.A % args.B
 	return nil
-}
-
-func main() {
-	arith := new(Arith) // create a type instance
-	rpc.Register(arith) // register instance
-	rpc.HandleHTTP()
-	l, e := net.Listen("tcp", ":1234")
-	if e != nil {
-		log.Fatal("listen error:", e)
-	}
-	go http.Serve(l, nil)
 }
