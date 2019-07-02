@@ -5,7 +5,7 @@ import (
 	"log"
 	"net/rpc"
 
-	"github.com/jinmiaoluo/goplay/rpc/server/server"
+	"github.com/jinmiaoluo/goplay/rpc/synchronous/server/server"
 )
 
 func main() {
