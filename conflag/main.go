@@ -18,10 +18,10 @@ func main() {
 
 	// set flags from configuration before parse command-line flags.
 	if args, err := conflag.ArgsFrom(configPath); err == nil {
-		flag.CommandLine.Parse(args)
+		_ = flag.CommandLine.Parse(args)
 	}
 
 	// parse command-line flags.
 	flag.Parse()
-	fmt.Println(procs)
+	fmt.Println("the value of procs is:", procs)
 }
