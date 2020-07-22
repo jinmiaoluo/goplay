@@ -7,16 +7,16 @@ bitmap 用于存放常见的数学上的集合. 比如我们有这个一个集�
 * [为什么基数大于等于 4096 时会触发 arrayContainer 到 bitmapContainer 的转换](#为什么基数大于等于-4096-时会触发-arraycontainer-到-bitmapcontainer-的转换)
 * [runContainer 作用](#runcontainer-作用)
 * [bitmapContainer 如何存储数据](#bitmapcontainer-如何存储数据)
-* [Roaring Bitmaps 如何实现 bitmap 的压缩](#roaring-bitmaps-如何实现-bitmap-的压缩)
-* [bitmapContainer 到 runContainer 转换时, 如何计算 runContainer 需要的 interval 数组的成员的个数](#bitmapcontainer-到-runcontainer-转换时-如何计算-runcontainer-需要的-interval-数组的成员的个数)
-* [如何将 bitmapContainer 转换为 runContainer](#如何将-bitmapcontainer-转换为-runcontainer)
-* [两个 bitmapContainer 求 And 后将结果存放在 arrayContainer 逻辑实现](#两个-bitmapcontainer-求-and-后将结果存放在-arraycontainer-逻辑实现)
-* [arrayContainer 和 bitmapContainer 求 And 后将结果存放在 arrayContainer 实现](#arraycontainer-和-bitmapcontainer-求-and-后将结果存放在-arraycontainer-实现)
+* [Roaring Bitmaps 如何实现压缩](#roaring-bitmaps-如何实现压缩)
+* [bitmapContainer 转换为 runContainer 时计算 runContainer 需要的 iv 数组成员个数](#bitmapcontainer-转换为-runcontainer-时计算-runcontainer-需要的-iv-数组成员个数)
+* [bitmapContainer 转换为 runContainer](#bitmapcontainer-转换为-runcontainer)
+* [bitmapContainer 和 bitmapContainer 求 And 实现](#bitmapcontainer-和-bitmapcontainer-求-and-实现)
+* [arrayContainer 和 bitmapContainer 求 And 实现](#arraycontainer-和-bitmapcontainer-求-and-实现)
 * [runContainer 和 bitmapContainer 求 And 实现](#runcontainer-和-bitmapcontainer-求-and-实现)
-* [给 bitmapContainer 设置连续的 1 的实现](#给-bitmapcontainer-设置连续的-1-的实现)
-* [求插入索引逻辑实现](#求插入索引逻辑实现)
+* [给 bitmapContainer 指定范围的块置 1 实现](#给-bitmapcontainer-指定范围的块置-1-实现)
+* [求插入索引实现](#求插入索引实现)
 * [runContainer 和 arrayContainer 求 And 实现](#runcontainer-和-arraycontainer-求-and-实现)
-* [runContainer 和 runContainer 求 and 逻辑实现](#runcontainer-和-runcontainer-求-and-逻辑实现)
+* [runContainer 和 runContainer 求 and 实现](#runcontainer-和-runcontainer-求-and-实现)
 * [参考](#参考)
 
 <!-- vim-markdown-toc -->
@@ -96,11 +96,11 @@ func (bc *bitmapContainer) loadData(arrayContainer *arrayContainer) {
 }
 ```
 
-#### Roaring Bitmaps 如何实现 bitmap 的压缩
+#### Roaring Bitmaps 如何实现压缩
 
 Roaring Bitmaps 实现压缩, 有很大一部分是由于 runContainer. 在调用 `runOptimize()` 时, 会判断三种数据结构所表示的容器所需要的空间, 根据最小的空间占用, 从而决定要用哪种容器, 最终达到压缩的效果
 
-#### bitmapContainer 到 runContainer 转换时, 如何计算 runContainer 需要的 interval 数组的成员的个数
+#### bitmapContainer 转换为 runContainer 时计算 runContainer 需要的 iv 数组成员个数
 
 ```go
 func (bc *bitmapContainer) numberOfRuns() int {
@@ -139,7 +139,7 @@ func (bc *bitmapContainer) numberOfRuns() int {
 
 bitmap 数组最后一个成员的判断逻辑如下, 计算左边界为 0 的次数, 然后判断最高位是否为 1. 如果最高位为 1, 那么, 我们需要在左边界为 0 的次数上 +1, 否则, 结果就是左边界为 0 时的次数
 
-#### 如何将 bitmapContainer 转换为 runContainer
+#### bitmapContainer 转换为 runContainer
 
 ```go
 func newRunContainer16FromBitmapContainer(bc *bitmapContainer) *runContainer16 {
@@ -209,7 +209,7 @@ func newRunContainer16FromBitmapContainer(bc *bitmapContainer) *runContainer16 {
 
 注意: 这一步很重要. 由于我们在末尾置 1 操作, 现在, 我们可以将所有末尾连续的 1 置零: `curWord = curWordWith1s & (curWordWith1s + 1)` 进入下一个循环
 
-#### 两个 bitmapContainer 求 And 后将结果存放在 arrayContainer 逻辑实现
+#### bitmapContainer 和 bitmapContainer 求 And 实现
 
 bitmapContainer 的本质是 65536 个 bit 的 blob, 因为计算机最大的类型所能使用的 bit 是 64 位, 因此, 我们需要一个数组来表示这个 blob. 因此, bitmapContainer 是一个由 uint64 类型整数组成的包含 1024 个成员的整数数组, 数组成员默认值是 0. 假设数组成员如下 [10, 15, 20 ...], 以第一个数组成员为例. 表示成 64 位二进制是 `0...00001010`(我省略了部分0), 我们可以知道, 如果用 arrayContainer 来表示的话, 就是 `[1,3]` (因为二进制中, 从右到左, 总共有两个 1,  第一个 1 的索引是 1, 第二个 1 的索引是 3, 因此, bitmapContainer 中的第一个成员 10 表示的集合就是 `{1,3}`).
 
@@ -232,7 +232,7 @@ for k := 0; k < len(bitmap1); k++ {
 
 我们先遍历 bitmapContainer 数组, 拿到整数 10. 然后, 求整数 10 和整数 -10 的交集(这是因为: 一个数的负数等于这个数取反+1), 可以求得, 整数 10 二进制下从最低位开始, 为 1的二进制位表示的整数 t(这里 `10 & -10 = 2`, 所以 t == 2, 2 的二进制是 `00000010`, 对照整数 10 的二进制, `00001010` 可以知道, 这一步的作用是求整数 10 的二进制从最小位开始 1 所表示的整数. 整数 2 的二进制表示的正是整数 10 的二进制中, 最小位开始的 1 所在的二进制位 ), 整数 t - 1, 将把整数 t 在二进制下 1 所在的位置 0, 1 后面的位全部置 1, 即 `00000001`(举一个很易懂的例子, 假设 t == 8, 二进制表示是 `00001000`, `t - 1 == 7`, 7 的二进制是 `00000111`, 通过计算 1 的个数为 3, 我们可以知道 t == 8 的时候, t 在二进制下, 从最小位开始, 1 出现时的索引是 3, 也就是 7 在二进制下所有的 1 的个数). 然后将其值存放到数组内并让索引自增. 最后, 我们需要将整数 10 中第一位出现的 1 置 0, 这一步可以通过将整数 10 和 t 求异或(Xor)实现. 然后我们进入下一个循环
 
-#### arrayContainer 和 bitmapContainer 求 And 后将结果存放在 arrayContainer 实现
+#### arrayContainer 和 bitmapContainer 求 And 实现
 
 ```go
 func (bc *bitmapContainer) andArray(value2 *arrayContainer) *arrayContainer {
@@ -276,7 +276,7 @@ func (rc *runContainer16) andBitmapContainer(bc *bitmapContainer) container {
 - 先将 runContainer 转换为 bitmapContainer 并赋值给 bc2
 - 调用 bc2.andBitmap() 方法求值. 从这一步开始演变成为 bitmapContainer 和 bitmapContainer 的 And 操作, 见上文
 
-#### 给 bitmapContainer 设置连续的 1 的实现
+#### 给 bitmapContainer 指定范围的块置 1 实现
 
 ```go
 func setBitmapRange(bitmap []uint64, start int, end int) {
@@ -308,7 +308,7 @@ setBitmapRange() 函数的实现非常有意思. 因为这里使用了位运算�
   - 我们可能有 0 到 n 个连续的全为 1 的 bitmap 数组成员. 其索引是 firstword + 1
   - bitmap 数组在 endword 索引下的值是从左到右置 0
 
-#### 求插入索引逻辑实现
+#### 求插入索引实现
 假设有整数 a, 整数数组 b. b 有 length 个数组成员. 已知 a > b[pos], 求 a 作为 b 中的成员时, a 在 b 数组中的索引(要利用已知的 a > b[pos], 直接排除掉 b[:pos+1] 表示的整数)
 
 完整的函数如下:
@@ -433,7 +433,7 @@ func (rc *runContainer16) andArray(ac *arrayContainer) container {
   - 否则, arrayVal >= iv.start && arrayPos < acCardinality. 由于内部循环确保了 arrayVal <= iv.last(). 所以 arrayVal 在 runContainer 中. 将 arrayVal 加入到 arrayContainer c 中. arrayPos++. 进入下一个循环
   - 否则, 返回 arrayContainer. 退出函数
 
-#### runContainer 和 runContainer 求 and 逻辑实现
+#### runContainer 和 runContainer 求 and 实现
 
 这个逻辑的实现过程在 runcontainer.go `func (rc *runContainer16) intersec(b *runContainer16) *runContainer16` 方法内. 这个函数的实现, 由于性能的考虑, 没有采用先转为 bitmapContainer 再比较, 而是直接通过遍历所有 runContainer.iv[] 数组中的成员, 然后依次比较这些成员. 因此, 逻辑比较复杂
 
