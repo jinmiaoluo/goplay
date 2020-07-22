@@ -19,6 +19,7 @@ bitmap 用于存放常见的数学上的集合. 比如我们有这个一个集�
 * [runContainer 和 runContainer 求 And 实现](#runcontainer-和-runcontainer-求-and-实现)
 * [arrayContainer 和 arrayContainer 求 AndNot 实现](#arraycontainer-和-arraycontainer-求-andnot-实现)
 * [arrayContainer 和 bitmapContainer 求 AndNot 实现](#arraycontainer-和-bitmapcontainer-求-andnot-实现)
+* [arrayContainer 和 runContainer 求 AndNot 实现](#arraycontainer-和-runcontainer-求-andnot-实现)
 * [参考](#参考)
 
 <!-- vim-markdown-toc -->
@@ -574,6 +575,18 @@ func (ac *arrayContainer) andNotBitmap(value2 *bitmapContainer) container {
     - 如果 pos 自增了. 说明 v 不在 *bitmapContainer 中. 此时 answer.content[] 中添加的成员被保留
     - 否则, pos 没有自增. 说明 v 在 *bitmapContainer 中. 此时 answer.content[] 中添加的成员被清除
 - 返回结果为 *arrayContainer 类型的容器 answer
+
+#### arrayContainer 和 runContainer 求 AndNot 实现
+
+```go
+func (ac *arrayContainer) andNotRun16(rc *runContainer16) container {
+	acb := ac.toBitmapContainer()
+	rcb := rc.toBitmapContainer()
+	return acb.andNotBitmap(rcb)
+}
+```
+
+转换为 bitmapContainer 后再求两个 bitmapContainer 的 AndNot
 
 #### 参考
 - [Lemire's paper](https://arxiv.org/pdf/1402.6407.pdf)
