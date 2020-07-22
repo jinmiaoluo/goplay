@@ -18,6 +18,7 @@ bitmap 用于存放常见的数学上的集合. 比如我们有这个一个集�
 * [runContainer 和 arrayContainer 求 And 实现](#runcontainer-和-arraycontainer-求-and-实现)
 * [runContainer 和 runContainer 求 And 实现](#runcontainer-和-runcontainer-求-and-实现)
 * [arrayContainer 和 arrayContainer 求 AndNot 实现](#arraycontainer-和-arraycontainer-求-andnot-实现)
+* [arrayContainer 和 bitmapContainer 求 AndNot 实现](#arraycontainer-和-bitmapcontainer-求-andnot-实现)
 * [参考](#参考)
 
 <!-- vim-markdown-toc -->
@@ -547,6 +548,32 @@ func difference(set1 []uint16, set2 []uint16, buffer []uint16) int {
     - 否则 k2+1 不是末尾, 还有 s2 = set2[k2+1] 仍成立, 因此 s2 = set2[k2+1]
 - 返回 pos. 由于 `buffer []int16` 型参传入的实参是 `answer.content` 指针对象, 因此 `answer.content` 中的内容也被更新了
 - 修整 `answer.content` 数组的大小(感觉不是很必要)
+
+#### arrayContainer 和 bitmapContainer 求 AndNot 实现
+```go
+func (ac *arrayContainer) andNotBitmap(value2 *bitmapContainer) container {
+	desiredcapacity := ac.getCardinality()
+	answer := newArrayContainerCapacity(desiredcapacity)
+	answer.content = answer.content[:desiredcapacity]
+	pos := 0
+	for _, v := range ac.content {
+		answer.content[pos] = v
+		pos += 1 - int(value2.bitValue(v))
+	}
+	answer.content = answer.content[:pos]
+	return answer
+}
+```
+
+- 遍历 arrayContainer.content. 以 pos 作为 key 存放 遍历得到的值 v
+- pos 是否自增取决于 v 是否在 *bitmapContainer 中
+  - 如果在, 对应二进制位的值为 1, pos = 0
+  - 否则 pos 自增
+- `answer.content = answer.content[:pos]`
+  - pos 是否自增了
+    - 如果 pos 自增了. 说明 v 不在 *bitmapContainer 中. 此时 answer.content[] 中添加的成员被保留
+    - 否则, pos 没有自增. 说明 v 在 *bitmapContainer 中. 此时 answer.content[] 中添加的成员被清除
+- 返回结果为 *arrayContainer 类型的容器 answer
 
 #### 参考
 - [Lemire's paper](https://arxiv.org/pdf/1402.6407.pdf)
