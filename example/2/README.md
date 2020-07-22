@@ -16,7 +16,8 @@ bitmap 用于存放常见的数学上的集合. 比如我们有这个一个集�
 * [给 bitmapContainer 指定范围的块置 1 实现](#给-bitmapcontainer-指定范围的块置-1-实现)
 * [求插入索引实现](#求插入索引实现)
 * [runContainer 和 arrayContainer 求 And 实现](#runcontainer-和-arraycontainer-求-and-实现)
-* [runContainer 和 runContainer 求 and 实现](#runcontainer-和-runcontainer-求-and-实现)
+* [runContainer 和 runContainer 求 And 实现](#runcontainer-和-runcontainer-求-and-实现)
+* [arrayContainer 和 arrayContainer 求 AndNot 实现](#arraycontainer-和-arraycontainer-求-andnot-实现)
 * [参考](#参考)
 
 <!-- vim-markdown-toc -->
@@ -433,7 +434,7 @@ func (rc *runContainer16) andArray(ac *arrayContainer) container {
   - 否则, arrayVal >= iv.start && arrayPos < acCardinality. 由于内部循环确保了 arrayVal <= iv.last(). 所以 arrayVal 在 runContainer 中. 将 arrayVal 加入到 arrayContainer c 中. arrayPos++. 进入下一个循环
   - 否则, 返回 arrayContainer. 退出函数
 
-#### runContainer 和 runContainer 求 and 实现
+#### runContainer 和 runContainer 求 And 实现
 
 这个逻辑的实现过程在 runcontainer.go `func (rc *runContainer16) intersec(b *runContainer16) *runContainer16` 方法内. 这个函数的实现, 由于性能的考虑, 没有采用先转为 bitmapContainer 再比较, 而是直接通过遍历所有 runContainer.iv[] 数组中的成员, 然后依次比较这些成员. 因此, 逻辑比较复杂
 
@@ -458,6 +459,82 @@ func (rc *runContainer16) andArray(ac *arrayContainer) container {
 这个方法实现的逻辑全部代码加起来有 250+ lines. 不做展开. 其中的逻辑是: 用一个循环同时遍历 a.iv 和 b.iv. 然后比对 a.iv 和 b.iv 中的重合部分. 如果 a.iv[acuri] 和 b.iv[acuri] 中有重合, 记录重合和剩余未匹配的部分. 如果 a.iv[acuri] 和 b.iv[acuri] 中没有重合. astart < bstart, 那么我们就要去找下一个 a.iv 中的成员 w, 使 w.start 可以 >= bstart, 然后继续下一个循环判断有没有重合. bstart < astart 同理. 直到我们遍历完 a.iv 或者 b.iv 数组其中之一, 打破循环. 其中 a.search() 方法的作用已说明(用二分法确定最近索引). 可以节省一定的代码阅读的时间. 以供参考
 
 一句码外话, 这是我接触的代码里面. 逻辑比较复杂一段. 我第一次勉强看完, 心里难免会觉得难受. 因为这个逻辑之缜密和细致, 是我短时间内无法做到的. 因此难免心里有落差. 但是, 想跟后来人说一声, 初级开发和高级开发的区别是在写代码时, 能否严谨的处理所有的可能性(经验). 初级到高级是一个过程, 代码的细致化也是一个过程. 所以, 没必要感到失望. 这是时间的产物, 通过长时间的社区的协作, 逐渐改进的结果. 所以, 拥抱开源社区吧. 跟着社区一起进步吧
+
+#### arrayContainer 和 arrayContainer 求 AndNot 实现
+```go
+func (ac *arrayContainer) andNotArray(value2 *arrayContainer) container {
+	value1 := ac
+	desiredcapacity := value1.getCardinality()
+	answer := newArrayContainerCapacity(desiredcapacity)
+	length := difference(value1.content, value2.content, answer.content)
+	answer.content = answer.content[:length]
+	return answer
+}
+
+func difference(set1 []uint16, set2 []uint16, buffer []uint16) int {
+	if 0 == len(set2) {
+		buffer = buffer[:len(set1)]
+		for k := 0; k < len(set1); k++ {
+			buffer[k] = set1[k]
+		}
+		return len(set1)
+	}
+	if 0 == len(set1) {
+		return 0
+	}
+	pos := 0
+	k1 := 0
+	k2 := 0
+	buffer = buffer[:cap(buffer)]
+	s1 := set1[k1]
+	s2 := set2[k2]
+	for {
+		if s1 < s2 {
+			buffer[pos] = s1
+			pos++
+			k1++
+			if k1 >= len(set1) {
+				break
+			}
+			s1 = set1[k1]
+		} else if s1 == s2 {
+			k1++
+			k2++
+			if k1 >= len(set1) {
+				break
+			}
+			s1 = set1[k1]
+			if k2 >= len(set2) {
+				for ; k1 < len(set1); k1++ {
+					buffer[pos] = set1[k1]
+					pos++
+				}
+				break
+			}
+			s2 = set2[k2]
+		} else { // if (val1>val2)
+			k2++
+			if k2 >= len(set2) {
+				for ; k1 < len(set1); k1++ {
+					buffer[pos] = set1[k1]
+					pos++
+				}
+				break
+			}
+			s2 = set2[k2]
+		}
+	}
+	return pos
+
+}
+```
+
+- 遍历两个 arrayContainer 的 content 数组. 可以得到 k1 和 k2 索引下 set1 和 set2 数组中的值 s1 和 s2
+- 如果 s1 < s2. 说明 s1 不需要被重置(&^ 操作可以认为是对 a 的二进制位是否进行置 0 的操作. 如果 b 的对应二进制位为 1, 表示 a 相应的二进制位置 0, 否则不做操作). 存储 s1 到结果的数组内(pos 是此时 s1 值对应的索引). 累加 pos. 累加 k1. k1+1 是否已经是 set1 的末尾. 如果是, 退出循环. 否则 s1 = set1[k1+1]
+- 否则, 如果 s1 == s2, 说明 s1 需要被置 0, 此时 k1 和 k2 都需要累加. k1+1 是否已经是 set1 的末尾. 如果是, 退出循环. 否则 s1 = set1[k1+1]. k2+1 是否是末尾. 如果是, 则 set1 中所有的成员都不需要被重置. 通过循环遍历 set1, 将每个成员存储 s1 到结果的数组内. 并在每次循环时累加 pos. 并在当前循环结束后, 退出外部循环. 否则 k2+1 不是末尾, 还有 s2 = set2[k2+1] 仍成立, 因此 s2 = set2[k2+1]
+- 否则, s1 > s2, 累加 k2, k2+1 是否是末尾. 如果是, 则 set1 中所有的成员都不需要被重置. 通过循环遍历 set1, 将每个成员存储 s1 到结果的数组内. 并在每次循环时累加 pos. 并在当前循环结束后, 退出外部循环. 否则 k2+1 不是末尾, 还有 s2 = set2[k2+1] 仍成立, 因此 s2 = set2[k2+1]
+- 返回 pos. 由于 `buffer []int16` 型参传入的实参是 `answer.content` 指针对象, 因此 `answer.content` 中的内容也被更新了
+- 休整 `answer.content` 数组的大小
 
 #### 参考
 - [Lemire's paper](https://arxiv.org/pdf/1402.6407.pdf)
