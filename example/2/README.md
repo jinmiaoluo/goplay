@@ -20,6 +20,8 @@ bitmap 用于存放常见的数学上的集合. 比如我们有这个一个集�
 * [arrayContainer 和 arrayContainer 求 AndNot 实现](#arraycontainer-和-arraycontainer-求-andnot-实现)
 * [arrayContainer 和 bitmapContainer 求 AndNot 实现](#arraycontainer-和-bitmapcontainer-求-andnot-实现)
 * [arrayContainer 和 runContainer 求 AndNot 实现](#arraycontainer-和-runcontainer-求-andnot-实现)
+* [bitmapContainer 和 arrayContainer 求 AndNot 实现](#bitmapcontainer-和-arraycontainer-求-andnot-实现)
+* [Iterator 实现](#iterator-实现)
 * [参考](#参考)
 
 <!-- vim-markdown-toc -->
@@ -312,7 +314,7 @@ setBitmapRange() 函数的实现非常有意思. 因为这里使用了位运算�
   - bitmap 数组在 endword 索引下的值是从左到右置 0
 
 #### 求插入索引实现
-假设有整数 a, 整数数组 b. b 有 length 个数组成员. 已知 a > b[pos], 求 a 作为 b 中的成员时, a 在 b 数组中的索引(要利用已知的 a > b[pos], 直接排除掉 b[:pos+1] 表示的整数)
+假设有整数 a, 整数数组 b. b 有 length 个数组成员且 b 中的成员是从小到大排序的. 已知 a > b[pos], 求 a 作为 b 中的成员时, a 在 b 数组中的索引(要利用已知的 a > b[pos], 直接排除掉 b[:pos+1] 表示的 b 中的整数成员, 减少判断成本)
 
 完整的函数如下:
 
@@ -588,7 +590,189 @@ func (ac *arrayContainer) andNotRun16(rc *runContainer16) container {
 
 转换为 bitmapContainer 后再求两个 bitmapContainer 的 AndNot
 
+#### bitmapContainer 和 arrayContainer 求 AndNot 实现
+
+代码实现如下:
+```go
+func (bc *bitmapContainer) andNotArray(value2 *arrayContainer) container {
+	answer := bc.clone().(*bitmapContainer)
+	c := value2.getCardinality()
+	for k := 0; k < c; k++ {
+		vc := value2.content[k]
+		i := uint(vc) >> 6
+		oldv := answer.bitmap[i]
+		newv := oldv &^ (uint64(1) << (vc % 64))
+		answer.bitmap[i] = newv
+		answer.cardinality -= int((oldv ^ newv) >> (vc % 64))
+	}
+	if answer.cardinality <= arrayDefaultMaxSize {
+		return answer.toArrayContainer()
+	}
+	return answer
+}
+```
+
+遍历 arrayContainer 数组. 将遍历出来的值 vc 求 bitmap 索引 i 和索引对应的值 oldv. 通过 vc 求移动的1的位数后得到的整数(用于位消除), 并计算位消除后得到 newv. 根据 oldv 和 newv 求异或后再右移对应的位数后得到1, 用于更新基数. 最后, 根据最新的基数, 判断是否要将 bitmapContainer 转换位 arrayContainer, 从而优化存储空间.
+
+#### Iterator 实现
+
+迭代器的实现用于在不同 container 遍历所有值, 从而实现比如字符串打印 `func (*Bitmap) String()` 这类需要遍历所有值的方法. 见参考: 《Go设计模式：Iterator》 这篇文章
+
+`func (*Bitmap) String()` 实现的代码如下:
+```go
+// String creates a string representation of the Bitmap
+func (rb *Bitmap) String() string {
+	// inspired by https://github.com/fzandona/goroar/
+	var buffer bytes.Buffer
+	start := []byte("{")
+	buffer.Write(start)
+	i := rb.Iterator()
+	counter := 0
+	if i.HasNext() {
+		counter = counter + 1
+		buffer.WriteString(strconv.FormatInt(int64(i.Next()), 10))
+	}
+	for i.HasNext() {
+		buffer.WriteString(",")
+		counter = counter + 1
+		// to avoid exhausting the memory
+		if counter > 0x40000 {
+			buffer.WriteString("...")
+			break
+		}
+		buffer.WriteString(strconv.FormatInt(int64(i.Next()), 10))
+	}
+	buffer.WriteString("}")
+	return buffer.String()
+}
+```
+
+`*intIterator` 结构体
+```go
+// IntIterable allows you to iterate over the values in a Bitmap
+type IntIterable interface {
+	HasNext() bool
+	Next() uint32
+}
+
+// IntPeekable allows you to look at the next value without advancing and
+// advance as long as the next value is smaller than minval
+type IntPeekable interface {
+	IntIterable
+	// PeekNext peeks the next value without advancing the iterator
+	PeekNext() uint32
+	// AdvanceIfNeeded advances as long as the next value is smaller than minval
+	AdvanceIfNeeded(minval uint32)
+}
+
+type intIterator struct {
+	pos              int
+	hs               uint32
+	iter             shortPeekable
+	highlowcontainer *roaringArray
+}
+
+// HasNext returns true if there are more integers to iterate over
+func (ii *intIterator) HasNext() bool {
+	return ii.pos < ii.highlowcontainer.size()
+}
+
+func (ii *intIterator) init() {
+	if ii.highlowcontainer.size() > ii.pos {
+		ii.iter = ii.highlowcontainer.getContainerAtIndex(ii.pos).getShortIterator() // 这里会调用 `func (*arrayContainer) getShortIterator()` 类的方法. 获取到对应的实现 `shortPeekable` 接口的结构体
+		ii.hs = uint32(ii.highlowcontainer.getKeyAtIndex(ii.pos)) << 16
+	}
+}
+
+// Next returns the next integer
+func (ii *intIterator) Next() uint32 {
+	x := uint32(ii.iter.next()) | ii.hs
+	if !ii.iter.hasNext() {
+		ii.pos = ii.pos + 1
+		ii.init()
+	}
+	return x
+}
+
+// PeekNext peeks the next value without advancing the iterator
+func (ii *intIterator) PeekNext() uint32 {
+	return uint32(ii.iter.peekNext()&maxLowBit) | ii.hs
+}
+
+// AdvanceIfNeeded advances as long as the next value is smaller than minval
+func (ii *intIterator) AdvanceIfNeeded(minval uint32) {
+	to := minval >> 16
+
+	for ii.HasNext() && (ii.hs>>16) < to {
+		ii.pos++
+		ii.init()
+	}
+
+	if ii.HasNext() && (ii.hs>>16) == to {
+		ii.iter.advanceIfNeeded(lowbits(minval))
+
+		if !ii.iter.hasNext() {
+			ii.pos++
+			ii.init()
+		}
+	}
+}
+```
+
+```go
+// shortPeekable interface 结构体
+type shortPeekable interface {
+	shortIterable
+	peekNext() uint16
+	advanceIfNeeded(minval uint16)
+}
+
+// shortIterable interface 结构体
+type shortIterable interface {
+	hasNext() bool
+	next() uint16
+}
+```
+
+我们因为有 3 类 container, 所以, 这里会有三种实现上面方法的结构体, 这里以 `*arrayContainer` 类容器对应的结构体为例
+
+下面是实现上面两个接口的结构体和对应的方法
+```go
+type shortIterator struct {
+	slice []uint16
+	loc   int
+}
+
+func (si *shortIterator) hasNext() bool {
+	return si.loc < len(si.slice)
+}
+
+func (si *shortIterator) next() uint16 {
+	a := si.slice[si.loc]
+	si.loc++
+	return a
+}
+
+func (si *shortIterator) peekNext() uint16 {
+	return si.slice[si.loc]
+}
+
+func (si *shortIterator) advanceIfNeeded(minval uint16) {
+	if si.hasNext() && si.peekNext() < minval {
+		si.loc = advanceUntil(si.slice, si.loc, len(si.slice), minval)
+	}
+}
+```
+
+在整个实现过程跟迭代器相关的代码有:
+- `i := rb.Iterator()` 通过已有的数据, 新建迭代器 i
+- `i.HasNext()` 通过调用这个方法, 根据迭代器中的索引, 判断 `*roaringArray` 是否有这个成员
+- 如果 `*roaringArray` 有该成员, 调用 `i.Next()` 方法访问该成员内的数据, 判断该成员内是否还有其他数据
+  - 如果有, 索引不变. 继续遍历当前成员中的其他数据
+  - 如果没有, 索引自增1. 遍历下一个成员中的数据
+
 #### 参考
 - [Lemire's paper](https://arxiv.org/pdf/1402.6407.pdf)
 - [高效压缩位图RoaringBitmap的原理与应用](https://www.jianshu.com/p/818ac4e90daf)
 - [Roaring Bitmap更好的位图压缩算法](http://smartsi.club/better-bitmap-performance-with-roaring-bitmaps.html)
+- [Go设计模式：Iterator](https://jiajunhuang.com/articles/2020_06_07-go_design_pattern_iter.md.html)
