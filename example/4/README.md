@@ -1,5 +1,5 @@
 # 打印调用栈
-打印调用栈是调试代码常用的手段
+打印调用栈是调试代码常用的手段. 这里的主要内容来自 [鸟窝-调试利器：dump goroutine 的 stacktrace](https://colobu.com/2016/12/21/how-to-dump-goroutine-stack-traces/)
 
 # 目录
 

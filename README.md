@@ -6,6 +6,10 @@
 - [roaring bitmaps 原理](example/2/)
 - [study golang website 源码阅读](example/3/)
 - [打印调用栈](example/4/)
+- [gRPC 和 Protocol Buffers 3](example/5/)
+- [etcd 和 mvcc 实现](example/6/)
+- [etcd 和 raft 实现](example/7/)
+- [插件系统实现](example/8/)
 
 # RSS
 - [订阅地址](https://github.com/jinmiaoluo/goplay/commits/master.atom)
