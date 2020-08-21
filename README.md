@@ -10,6 +10,7 @@
 - [etcd 和 mvcc 实现](example/6/)
 - [etcd 和 raft 实现](example/7/)
 - [插件系统实现](example/8/)
+- [一些有趣的 Go 相关的文章](example/10/)
 
 # RSS
 - [订阅地址](https://github.com/jinmiaoluo/goplay/commits/master.atom)
