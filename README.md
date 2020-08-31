@@ -12,6 +12,7 @@
 - [插件系统实现](example/8/)
 - [一些有趣的 Go 相关的文章](example/10/)
 - [Go 面试题集合](example/13)
+- [Go init 执行顺序](example/21)
 
 # RSS
 - [订阅地址](https://github.com/jinmiaoluo/goplay/commits/master.atom)
