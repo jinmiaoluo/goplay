@@ -17,9 +17,10 @@ go run a.go b.go
 
 - 先初始化 package variables
   - a import b, and b import c
-    - variables from c
-    - variables from b
-    - variables from a
+    - 初始化顺序如下:
+      - variables from c
+      - variables from b
+      - variables from a
   - package variables 类似于全局变量
 - 然后调用 init 函数
   - 不同 package 中的 init 函数
