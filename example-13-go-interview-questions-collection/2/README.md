@@ -2,7 +2,7 @@
 
 请先阅读原题相关的信息和思路. 我将以我自己的方式复述思路. 并做一些补充的思考. 写这篇记录的目的是加深自己的理解.
 
-地址: https://github.com/halfrost/LeetCode-Go/blob/4e11f4028ab6add9bfbb64d541dd5d961c3a7ed5/leetcode/0020.Valid-Parentheses/20.%20Valid%20Parentheses.go
+地址: [20. Valid Parentheses](https://github.com/halfrost/LeetCode-Go/tree/4e11f4028ab6add9bfbb64d541dd5d961c3a7ed5/leetcode/0020.Valid-Parentheses)
 
 - 构建一个数组
 - 遍历字符串
@@ -31,3 +31,9 @@
   - 遍历完所有的字符后, 判断栈内是否还有剩余的字符.
     - 如果有, 这是一个多余的左边成员.
     - 否则, 说明所有成对符号都成功配对.
+
+#### demo
+
+```bash
+go run main.go
+```

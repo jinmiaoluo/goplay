@@ -1,2 +1,6 @@
-./main.go
-./example/13/1/result.txt
+# 当前目录中的 main.go 是我尝试一些 go 代码的地方. 因为会经常变更,
+# 所以不应该被版本控制.
+/main.go
+
+# 我不使用 vscode.
+/.vscode

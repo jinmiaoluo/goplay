@@ -15,6 +15,7 @@
 go run a.go b.go
 ```
 
+上面命令相关的代码中, package variables 和 init function 的执行顺序:
 - 先初始化 package variables
   - a import b, and b import c
     - 初始化顺序如下:
