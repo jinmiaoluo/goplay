@@ -34,4 +34,4 @@
 - [Go 定点算术运算](example-29-go-fixed-point-arithmetic)
 
 #### RSS
-- [订阅地址](https://github.com/jinmiaoluo/goplay/commits/master.atom)
+- [订阅地址](https://github.com/jinmiaoluo/goplay/commits/main.atom)
