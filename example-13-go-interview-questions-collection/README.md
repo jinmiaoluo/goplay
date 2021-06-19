@@ -1,6 +1,20 @@
-# Golang 面试题汇总
+# LeetCode & interview
 
-记录我遇到的一些面试题和解决的思路. 亲自写下 demo 可以加深影响, 因此做下面的记录
+记录我遇到的一些面试题和 LeetCode 问题的解.
 
-- [有一个大文件, 需要改一个词 a 为 b ](1)
-- [括号匹配问题](2)
+## 面试题
+
+- [interview-1: 有一个大文件, 需要改一个词 a 为 b](interview-1)
+
+## LeetCode
+
+- Array
+  - Easy
+    - [leetcode-1](leetcode-1)
+    - [leetcode-26](leetcode-26)
+    - [leetcode-27](leetcode-27)
+    - [leetcode-35](leetcode-35)
+    - [leetcode-53](leetcode-53)
+    - [leetcode-66](leetcode-66)
+- Other
+  - [leetcode-20: 括号匹配问题](leetcode-20)
