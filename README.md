@@ -32,6 +32,7 @@
 - [Go 性能分析](example-27-go-performance-analysis)
 - [Go 限流](example-28-go-rate-limit)
 - [Go 定点算术运算](example-29-go-fixed-point-arithmetic)
+- [Go 与 SQLX](example-30-go-and-sqlx)
 
 #### RSS
 - [订阅地址](https://github.com/jinmiaoluo/goplay/commits/main.atom)
